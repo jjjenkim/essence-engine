@@ -1,4 +1,4 @@
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method Not Allowed' });
@@ -11,7 +11,7 @@ export default async function handler(req, res) {
 
   try {
     const body = await readJsonBody(req);
-    const prompt = typeof body?.prompt === 'string' ? body.prompt : '';
+    const prompt = body && typeof body.prompt === 'string' ? body.prompt : '';
     if (!prompt.trim()) {
       return res.status(400).json({ error: 'Missing prompt' });
     }
@@ -51,4 +51,3 @@ async function readJsonBody(req) {
   if (!raw) return {};
   return JSON.parse(raw);
 }
-
