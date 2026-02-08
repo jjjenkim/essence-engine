@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>본질엔진 (Essence Engine)</title>
+      <!-- Fonts -->
+      <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700&display=swap" rel="stylesheet">
+      <!-- Tailwind CSS -->
+      <script src="https://cdn.tailwindcss.com"></script>
+      <!-- React & ReactDOM -->
+      <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+      <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+      <!-- Babel for JSX -->
+      <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+      <!-- Lucide Icons -->
+      <script src="https://unpkg.com/lucide@latest"></script>
+      <style>
+            body {
+                  margin: 0;
+                  padding: 0;
+                  background-color: #1a1a1a;
+                  font-family: 'Noto Sans KR', sans-serif;
+            }
+
+            .animate-spin {
+                  animation: spin 1s linear infinite;
+            }
+
+            @keyframes spin {
+                  from {
+                        transform: rotate(0deg);
+                  }
+
+                  to {
+                        transform: rotate(360deg);
+                  }
+            }
+      </style>
+</head>
+
+<body>
+      <div id="root"></div>
+
+      <script type="text/babel">
+            const { useState, useEffect, useRef } = React;
+
+            // --- Lucide Icon Shim (Fixed to prevent React DOM removal crashes) ---
+            const LucideIcon = ({ name, className = "", style = {} }) => {
+                  const containerRef = useRef(null);
+                  useEffect(() => {
+                        if (window.lucide && containerRef.current) {
+                              containerRef.current.innerHTML = `<i data-lucide="${name}"></i>`;
+                              window.lucide.createIcons({
+                                    root: containerRef.current
+                              });
+                        }
+                  }, [name]);
+                  return <span ref={containerRef} className={className} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', ...style }}></span>;
+            };
+
+            const Loader2 = (props) => <LucideIcon name="loader-2" {...props} className={(props.className || "") + " animate-spin"} />;
+            const Lightbulb = (props) => <LucideIcon name="lightbulb" {...props} />;
+            const Target = (props) => <LucideIcon name="target" {...props} />;
+            const Network = (props) => <LucideIcon name="network" {...props} />;
+            const Layout = (props) => <LucideIcon name="layout" {...props} />;
+            const CheckSquare = (props) => <LucideIcon name="check-square" {...props} />;
+            const Rocket = (props) => <LucideIcon name="rocket" {...props} />;
+            const TrendingUp = (props) => <LucideIcon name="trending-up" {...props} />;
+
+            // --- config.js Contents ---
+            const API_CONFIG = {
+                  endpoint: '/api/generate'
+            };
+
+            const SYSTEM_PROMPT = `
+당신은 '범용 본질엔진(Universal Essence Engine)'입니다.
+사용자의 혼란스러운 생각을 7단계로 분석하여 본질을 찾고 실행 계획을 제시합니다.
+
+# 7단계 처리 과정
+... (Original System Prompt) ...
+# 출력 형식 (JSON)
+반드시 아래 JSON 형식으로만 응답하세요:
+\`\`\`json
+{
+  "stage2": { ... },
+  "stage4": { ... },
+  "stage5": { ... },
+  "stage6": { ... },
+  "stage7": { ... }
+}
+\`\`\`
+중요: JSON만 출력하고 다른 설명은 넣지 마세요.
+            `;
+            // Note: Restoring full prompt below via direct inclusion to match 1:1 request.
+            const FULL_SYSTEM_PROMPT = `
+당신은 '범용 본질엔진(Universal Essence Engine)'입니다.
+사용자의 혼란스러운 생각을 7단계로 분석하여 본질을 찾고 실행 계획을 제시합니다.
+
+# 7단계 처리 과정
+
+## Stage 1: 맥락 해체
+- 고유명사를 변수로 치환
+- 핵심 동사 추출
+- 감정/시간 레이어 분리
+
+## Stage 2: 본질 추출
+- 5-Why 재귀로 진짜 질문 찾기
+- 숨은 가정 명시화
+- 욕구와 수단 분리
+
+## Stage 3: 지식 연결
+- 유사한 과거 패턴 찾기
+- 해결 구조 역추적
+- 반복되는 실패 패턴 감지
+
+## Stage 4: 패턴 인식
+- 주제 클러스터링
+- 시간축 패턴 (과거→현재→미래)
+- 사고 방식 프로파일링
+
+## Stage 5: 구조화
+- 최적 프레임워크 선택 (매트릭스/스펙트럼/타임라인)
+- 관계 맵핑 (인과/병렬/상충)
+- 계층 구조화 (원칙→전략→기법)
+
+## Stage 6: 구체화
+- 추상 개념을 측정 가능한 지표로
+- 구체적 방법론 (4-5단계)
+- 성공 기준 정의
+
+## Stage 7: 실행 계획
+- 우선순위 매트릭스 (Impact × Feasibility)
+- 시간축 배치 (즉시/단기/중기)
+- 첫 액션 명확화 (5분 내 시작 가능)
+- 장애물 사전 제거
+- 체크포인트 설정
+
+# 출력 형식 (JSON)
+
+반드시 아래 JSON 형식으로만 응답하세요:
+
+\`\`\`json
+{
+  "stage2": {
+    "essence": "핵심 질문 (한 문장)",
+    "whyChain": ["키워드1", "키워드2", "키워드3"],
+    "assumptions": ["가정1", "가정2"]
+  },
+  "stage4": {
+    "metaPattern": "메타 패턴 (짧게)",
+    "patternDetail": "패턴 설명",
+    "profile": "사고 방식",
+    "profileDetail": "사고 방식 설명"
+  },
+  "stage5": {
+    "framework": "프레임워크 이름",
+    "frameworkDetail": "축 설명",
+    "position": "현재 위치",
+    "positionVisual": {
+      "competitors": [
+        {"name": "이름1", "x": 3, "y": 5, "desc": "설명"},
+        {"name": "이름2", "x": 7, "y": 8, "desc": "설명"}
+      ]
+    },
+    "key": "핵심 인사이트 한 문장"
+  },
+  "stage6": {
+    "why": "왜 이 작업이 필요한가",
+    "how": "기본 아이디어",
+    "method": [
+      {
+        "step": "단계 설명",
+        "why": "왜 이 단계가",
+        "how": "어떻게 하나"
+      }
+    ],
+    "successTest": {
+      "what": "무엇을 테스트",
+      "how": "어떻게 테스트",
+      "when": "성공 기준"
+    }
+  },
+  "stage7": {
+    "firstAction": {
+      "what": "첫 행동",
+      "why": "왜",
+      "how": "어떻게",
+      "where": "어디서",
+      "time": "소요 시간"
+    },
+    "timeline": {
+      "day1": {"task": "오늘", "check": "확인 방법"},
+      "week1": {"task": "이번 주", "check": "확인 방법"},
+      "week2": {"task": "2주", "check": "확인 방법"}
+    },
+    "risk": {
+      "pattern": "과거 실패 패턴",
+      "solution": "대응 방법"
+    }
+  }
+}
+\`\`\`
+
+중요: JSON만 출력하고 다른 설명은 넣지 마세요.
+`;
+
+            const colors = {
+                  bg: '#1a1a1a',
+                  card: '#2a2a2a',
+                  text: '#e8e6dc',
+                  textDim: '#b0aea5',
+                  orange: '#d97757',
+                  blue: '#6a9bcc',
+                  green: '#788c5d',
+                  border: '#3a3a3a'
+            };
+
+            const UniversalEssenceEngine = () => {
+                  const [input, setInput] = useState('');
+                  const [loading, setLoading] = useState(false);
+                  const [result, setResult] = useState(null);
+                  const [error, setError] = useState(null);
+
+                  const processThought = async () => {
+                        if (!input.trim()) return;
+                        setLoading(true);
+                        setError(null);
+
+                        try {
+                              const response = await fetch(API_CONFIG.endpoint, {
+                                    method: 'POST',
+                                    headers: {
+                                          'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({
+                                          prompt: `${FULL_SYSTEM_PROMPT}\n\nUser Query: ${input}`
+                                    })
+                              });
+
+                              if (!response.ok) {
+                                    const errorText = await response.text();
+                                    throw new Error(`API Error: ${response.status} - ${errorText || 'Failed to reach API'}`);
+                              }
+
+                              const data = await response.json();
+                              const content = data.candidates[0].content.parts[0].text;
+                              const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || content.match(/\{[\s\S]*\}/);
+                              if (jsonMatch) {
+                                    setResult(JSON.parse(jsonMatch[1] || jsonMatch[0]));
+                              } else {
+                                    throw new Error('JSON 파싱 실패');
+                              }
+                        } catch (err) {
+                              console.error('Error:', err);
+                              setError(err.message);
+                        } finally {
+                              setLoading(false);
+                        }
+                  };
+
+                  return (
+                        <div className="min-h-screen p-6" style={{ backgroundColor: colors.bg, fontFamily: "'Noto Sans KR', sans-serif" }}>
+                              <div className="max-w-5xl mx-auto">
+                                    <div className="text-center mb-8">
+                                          <div className="flex items-center justify-center gap-3 mb-4">
+                                                <Lightbulb className="w-12 h-12" style={{ color: colors.orange }} />
+                                                <h1 className="text-5xl font-bold" style={{ color: colors.text }}>본질엔진</h1>
+                                          </div>
+                                          <p className="text-xl" style={{ color: colors.textDim }}>혼란 → 본질 → 실행</p>
+                                    </div>
+
+                                    <div className="rounded-2xl p-6 mb-6" style={{ backgroundColor: colors.card, border: `2px solid ${colors.border}` }}>
+                                          <label className="block mb-3 text-xl font-bold" style={{ color: colors.text }}>지금 뭐가 고민이야?</label>
+                                          <textarea
+                                                value={input}
+                                                onChange={(e) => setInput(e.target.value)}
+                                                placeholder="막 써봐. 정리 안 되어도 돼."
+                                                className="w-full h-32 rounded-xl p-4 resize-none text-xl focus:outline-none"
+                                                style={{ backgroundColor: colors.bg, border: `1px solid ${colors.border}`, color: colors.text, fontFamily: "'Noto Sans KR', sans-serif" }}
+                                          />
+                                          <button
+                                                onClick={processThought}
+                                                disabled={!input.trim() || loading}
+                                                className="mt-4 w-full font-bold py-3 px-6 rounded-xl transition-all flex items-center justify-center gap-2 text-xl"
+                                                style={{ backgroundColor: loading || !input.trim() ? colors.textDim : colors.orange, color: '#fff', opacity: loading || !input.trim() ? 0.5 : 1 }}
+                                          >
+                                                {loading ? <><Loader2 className="w-5 h-5 animate-spin" /> 생각 중...</> : <><Target className="w-5 h-5" /> 본질 찾기</>}
+                                          </button>
+                                    </div>
+
+                                    {error && (
+                                          <div className="rounded-2xl p-6 mb-6" style={{ backgroundColor: colors.card, border: `2px solid ${colors.orange}` }}>
+                                                <p style={{ color: colors.orange }}>오류: {error}</p>
+                                                <p className="text-sm mt-2" style={{ color: colors.textDim }}>Vercel 환경변수 <span style={{ fontFamily: 'monospace' }}>GEMINI_API_KEY</span> 설정을 확인하세요.</p>
+                                          </div>
+                                    )}
+
+                                    {result && (
+                                          <div className="space-y-4">
+                                                <div className="rounded-2xl p-6" style={{ backgroundColor: colors.card, borderLeft: `4px solid ${colors.orange}` }}>
+                                                      <div className="flex items-center gap-2 mb-4">
+                                                            <Lightbulb className="w-6 h-6" style={{ color: colors.orange }} />
+                                                            <h2 className="text-3xl font-bold" style={{ color: colors.orange }}>핵심 질문</h2>
+                                                      </div>
+                                                      <p className="text-2xl mb-4" style={{ color: colors.text }}>{result.stage2.essence}</p>
+                                                      <div className="text-lg mb-2" style={{ color: colors.textDim }}>키워드:</div>
+                                                      <div className="flex flex-wrap gap-2">
+                                                            {result.stage2.whyChain.map((word, i) => (
+                                                                  <span key={i} className="px-3 py-1 rounded-full text-lg" style={{ backgroundColor: `${colors.orange}20`, color: colors.orange }}>{word}</span>
+                                                            ))}
+                                                      </div>
+                                                </div>
+
+                                                <div className="rounded-2xl p-6" style={{ backgroundColor: colors.card, borderLeft: `4px solid ${colors.blue}` }}>
+                                                      <div className="flex items-center gap-2 mb-4">
+                                                            <Network className="w-6 h-6" style={{ color: colors.blue }} />
+                                                            <h2 className="text-3xl font-bold" style={{ color: colors.blue }}>내 패턴</h2>
+                                                      </div>
+                                                      <div className="space-y-3">
+                                                            <div>
+                                                                  <div className="text-xl font-bold mb-1" style={{ color: colors.text }}>{result.stage4.metaPattern}</div>
+                                                                  <div className="text-lg" style={{ color: colors.textDim }}>{result.stage4.patternDetail}</div>
+                                                            </div>
+                                                      </div>
+                                                </div>
+
+                                                <div className="rounded-2xl p-6" style={{ backgroundColor: colors.card, borderLeft: `4px solid ${colors.green}` }}>
+                                                      <div className="flex items-center gap-2 mb-4">
+                                                            <Layout className="w-6 h-6" style={{ color: colors.green }} />
+                                                            <h2 className="text-3xl font-bold" style={{ color: colors.green }}>위치 찾기</h2>
+                                                      </div>
+                                                      <div className="mb-6">
+                                                            <div className="text-lg mb-3" style={{ color: colors.textDim }}>{result.stage5.frameworkDetail}</div>
+                                                            <div className="relative rounded-lg p-6" style={{ backgroundColor: `${colors.border}80`, border: `1px solid ${colors.border}` }}>
+                                                                  <div className="relative h-64">
+                                                                        <div className="absolute -left-4 top-0 text-sm -rotate-90 origin-left" style={{ color: colors.textDim }}>위</div>
+                                                                        <div className="absolute -left-4 bottom-0 text-sm -rotate-90 origin-left" style={{ color: colors.textDim }}>아래</div>
+                                                                        <div className="absolute left-0 -bottom-6 text-sm" style={{ color: colors.textDim }}>왼쪽</div>
+                                                                        <div className="absolute right-0 -bottom-6 text-sm" style={{ color: colors.textDim }}>오른쪽</div>
+                                                                        <div className="absolute inset-0 border-l-2 border-b-2" style={{ borderColor: colors.textDim }}>
+                                                                              <div className="absolute left-1/2 top-0 bottom-0 border-l" style={{ borderColor: colors.border }}></div>
+                                                                              <div className="absolute top-1/2 left-0 right-0 border-t" style={{ borderColor: colors.border }}></div>
+                                                                        </div>
+                                                                        {result.stage5.positionVisual.competitors.map((comp, i) => (
+                                                                              <div key={i} className="absolute" style={{ left: `${comp.x * 10}%`, bottom: `${comp.y * 10}%`, transform: 'translate(-50%, 50%)' }}>
+                                                                                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: comp.name.includes('목표') || comp.name.includes('지금') ? colors.orange : colors.textDim, boxShadow: comp.name.includes('목표') || comp.name.includes('지금') ? `0 0 0 4px ${colors.orange}30` : 'none' }}></div>
+                                                                                    <div className="text-sm mt-1 whitespace-nowrap font-bold" style={{ color: comp.name.includes('목표') || comp.name.includes('지금') ? colors.orange : colors.textDim }}>{comp.name}</div>
+                                                                                    <div className="text-xs whitespace-nowrap" style={{ color: colors.textDim }}>{comp.desc}</div>
+                                                                              </div>
+                                                                        ))}
+                                                                  </div>
+                                                            </div>
+                                                      </div>
+                                                      <div className="p-4 rounded-lg text-lg" style={{ backgroundColor: `${colors.green}20`, color: colors.green, border: `1px solid ${colors.green}` }}>💡 {result.stage5.key}</div>
+                                                </div>
+
+                                                <div className="rounded-2xl p-6" style={{ backgroundColor: colors.card, borderLeft: `4px solid ${colors.orange}` }}>
+                                                      <div className="flex items-center gap-2 mb-4">
+                                                            <CheckSquare className="w-6 h-6" style={{ color: colors.orange }} />
+                                                            <h2 className="text-3xl font-bold" style={{ color: colors.orange }}>어떻게 할까</h2>
+                                                      </div>
+                                                      <div className="p-4 rounded-lg mb-4 text-lg" style={{ backgroundColor: `${colors.orange}20`, border: `1px solid ${colors.orange}` }}>
+                                                            <div className="font-bold mb-2" style={{ color: colors.orange }}>왜?</div>
+                                                            <div style={{ color: colors.text }}>{result.stage6.why}</div>
+                                                      </div>
+                                                      <div className="space-y-3 mb-4">
+                                                            {result.stage6.method.map((item, i) => (
+                                                                  <div key={i} className="p-4 rounded-lg" style={{ backgroundColor: `${colors.border}50` }}>
+                                                                        <div className="flex items-start gap-3">
+                                                                              <span className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xl" style={{ backgroundColor: colors.orange, color: '#fff' }}>{i + 1}</span>
+                                                                              <div className="flex-1">
+                                                                                    <div className="text-xl font-bold mb-2" style={{ color: colors.text }}>{item.step}</div>
+                                                                                    <div className="text-lg mb-1" style={{ color: colors.textDim }}><span style={{ color: colors.orange, fontWeight: 'bold' }}>왜?</span> {item.why}</div>
+                                                                                    <div className="text-lg" style={{ color: colors.textDim }}><span style={{ color: colors.blue, fontWeight: 'bold' }}>어떻게?</span> {item.how}</div>
+                                                                              </div>
+                                                                        </div>
+                                                                  </div>
+                                                            ))}
+                                                      </div>
+                                                </div>
+
+                                                <div className="rounded-2xl p-6" style={{ backgroundColor: colors.card, borderLeft: `4px solid ${colors.blue}` }}>
+                                                      <div className="flex items-center gap-2 mb-4">
+                                                            <Rocket className="w-6 h-6" style={{ color: colors.blue }} />
+                                                            <h2 className="text-3xl font-bold" style={{ color: colors.blue }}>지금 당장 뭘 하지?</h2>
+                                                      </div>
+                                                      <div className="p-5 rounded-lg mb-4" style={{ backgroundColor: `${colors.blue}20`, border: `2px solid ${colors.blue}` }}>
+                                                            <div className="text-2xl font-bold mb-3" style={{ color: colors.text }}>{result.stage7.firstAction.what}</div>
+                                                            <div className="grid grid-cols-2 gap-3 text-lg">
+                                                                  <div><span style={{ color: colors.blue, fontWeight: 'bold' }}>왜?</span> <span className="ml-2" style={{ color: colors.textDim }}>{result.stage7.firstAction.why}</span></div>
+                                                                  <div><span style={{ color: colors.blue, fontWeight: 'bold' }}>어디서?</span> <span className="ml-2" style={{ color: colors.textDim }}>{result.stage7.firstAction.where}</span></div>
+                                                            </div>
+                                                      </div>
+                                                      <div className="p-4 rounded-lg" style={{ backgroundColor: `${colors.orange}20`, border: `1px solid ${colors.orange}` }}>
+                                                            <div className="flex items-start gap-2">
+                                                                  <span className="text-2xl">⚠️</span>
+                                                                  <div>
+                                                                        <div className="text-xl font-bold mb-1" style={{ color: colors.orange }}>주의</div>
+                                                                        <div className="text-lg mb-2" style={{ color: colors.text }}>{result.stage7.risk.pattern}</div>
+                                                                        <div className="text-lg" style={{ color: colors.textDim }}><span className="font-bold">대응:</span> {result.stage7.risk.solution}</div>
+                                                                  </div>
+                                                            </div>
+                                                      </div>
+                                                </div>
+                                          </div>
+                                    )}
+
+                                    {!result && !loading && !error && (
+                                          <div className="text-center py-16" style={{ color: colors.textDim }}>
+                                                <TrendingUp className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                                                <p className="text-2xl">위에 생각 막 적고 버튼 눌러봐</p>
+                                          </div>
+                                    )}
+                              </div>
+                        </div>
+                  );
+            };
+
+            const root = ReactDOM.createRoot(document.getElementById('root'));
+            root.render(<UniversalEssenceEngine />);
+      </script>
+</body>
+
+</html>
